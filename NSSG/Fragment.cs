@@ -11,6 +11,7 @@ internal class Fragment {
         Name = name;
         Document = document;
     }
+
     public void ReplaceNode(XmlNode nodeToReplace) {
         XmlNode newNode = nodeToReplace.OwnerDocument!.ImportNode(Document.DocumentElement!, true);
         ReplaceContinue(newNode, nodeToReplace);
