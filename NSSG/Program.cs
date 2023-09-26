@@ -1,5 +1,4 @@
-﻿using Markdig;
-using NSSG;
+﻿using NSSG;
 using System.Collections.Concurrent;
 using System.Xml;
 
@@ -24,9 +23,7 @@ if (Directory.Exists(fullFragmentsPath)) {
 }
 
 // Compute pages.
-const string pagesPath = "pages";
-
-string fullPagesPath = Path.Combine(path, pagesPath);
+string fullPagesPath = Path.Combine(path, Settings.PagesPath);
 if (!Directory.Exists(fullPagesPath))
     return;
 
@@ -56,51 +53,11 @@ Parallel.ForEach(Directory.EnumerateFiles(fullPagesPath, "*.html", SearchOption.
         return;
     }
 
-    string name = x.Substring(pathCount + pagesPath.Length + 1);
+    string name = x.Substring(pathCount + Settings.PagesPath.Length + 1);
     string finalPath = Path.Combine(path, "output", name);
     Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
     File.WriteAllText(finalPath, document.OuterXml);
 });
 
 // Compute markdown files.
-Parallel.ForEach(Directory.EnumerateFiles(fullPagesPath, "*.md", SearchOption.AllDirectories), x => {
-    Fragment? template = null;
-    foreach (Fragment t in templates) {
-        if (x.StartsWith(t.Name) && (template is null || t.Name.Length > template.Name.Length))
-            template = t;
-    }
-
-    if (template is null)
-        throw new InvalidOperationException("Markdown files not contains template.");
-
-    string text = File.ReadAllText(x);
-    string[] lines = text.Split(new string[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-
-    Dictionary<string, string> attributes = new Dictionary<string, string>();
-
-    int count = 0;
-    foreach (string line in lines) {
-        count += line.Length;
-        if (line == "---") {
-            if (count > 3)
-                break;
-            continue;
-        }
-
-        int index = line.IndexOf(':');
-        string key = line[..index].Trim();
-        string value = line[(index + 1)..].Trim();
-
-        attributes.Add(key, value);
-    }
-
-    attributes.Add("md_content", Markdown.ToHtml(text[count..]));
-
-    XmlDocument document = (XmlDocument)template.Document.Clone();
-    document.ReplaceAttributes(attributes);
-
-    string name = x.Substring(pathCount + pagesPath.Length + 1);
-    string finalPath = Path.Combine(path, "output", name);
-    Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
-    File.WriteAllText(finalPath[..finalPath.LastIndexOf(".")] + ".html", document.OuterXml);
-});
+new MarkdownCreator(path, pathCount, fullPagesPath, templates).Create();
